@@ -1,97 +1,99 @@
 package zap
 
 import (
-	"io"
 	"os"
+	"path"
+	"runtime"
 
+	"github.com/lyy42995004/IM-Go/internal/config"
+	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-type Level = zapcore.Level
+var logger *zap.Logger
+var logPath string
 
-const (
-	DebugLevel = zapcore.DebugLevel
-	InfoLevel  = zapcore.InfoLevel
-	WarnLevel  = zapcore.WarnLevel
-	ErrorLevel = zapcore.ErrorLevel
-	PanicLevel = zapcore.PanicLevel
-	FatalLevel = zapcore.FatalLevel
-)
+// 自动调用
+func init() {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	// 设置日志记录中时间格式
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	// 创建JSON编码器
+	encoder := zapcore.NewJSONEncoder(encoderConfig)
 
-type Logger struct {
-	l  *zap.Logger
-	al *zap.AtomicLevel // 日志级别（原子变量）
-}
+	// 获取配置
+	conf := config.GetConfig()
+	logPath = conf.LogPath
 
-func New(out io.Writer, level Level, opts ...Option) *Logger {
-	if out != nil {
-		out = os.Stderr
-	}
+	// 创建文件写入同步器
+	fileWriteSyncer := getFileLogWriter()
 
-	al := zap.NewAtomicLevelAt(level)
-	cfg := zap.NewProductionEncoderConfig()
-	cfg.EncodeTime = zapcore.RFC3339TimeEncoder
-
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(cfg), // JSON 编码器
-		zapcore.AddSync(out),        // 输出目标
-		al,                          // 动态级别控制
+	// 创建核心日志处理器
+	core := zapcore.NewTee(
+		zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
+		zapcore.NewCore(encoder, fileWriteSyncer, zapcore.DebugLevel),
 	)
-	return &Logger{l: zap.New(core, opts...), al: &al}
+	logger = zap.New(core)
 }
 
-// SetLevel 动态更改日志级别
-// 对于使用 NewTee 创建的 Logger 无效，因为 NewTee 本意是根据不同日志级别
-// 创建的多个 zap.Core，不应该通过 SetLevel 将多个 zap.Core 日志级别统一
-func (l *Logger) SetLevel(level Level) {
-	if l.al != nil {
-		l.al.SetLevel(level)
+// 创建了一个支持日志轮转的写入器
+func getFileLogWriter() (writeSyncer zapcore.WriteSyncer) {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    100,   // 单个文件最大100MB
+		MaxBackups: 60,    // 最多保留60个备份文件
+		MaxAge:     7,     // 日志文件最多保留7天
+		Compress:   false, // 不压缩旧日志
+	}
+
+	return zapcore.AddSync(lumberJackLogger)
+}
+
+// 获得调用方的日志信息，包括函数名，文件名，行号
+func getCallerInfoForLog() []zap.Field {
+	// 获取调用者的程序计数器、文件名和行号(跳过2层调用栈)
+	pc, file, line, ok := runtime.Caller(2)
+	if !ok {
+		return nil
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+	funcName = path.Base(funcName) // 只保留函数名
+
+	// 创建包含调用者信息的字段
+	return []zap.Field{
+		zap.String("func", funcName),
+		zap.String("file", file),
+		zap.Int("line", line),
 	}
 }
 
-type Field = zap.Field
-
-func (l *Logger) Debug(msg string, fields ...Field) {
-	l.l.Debug(msg, fields...)
+func Info(message string, fields ...zap.Field) {
+	callerFields := getCallerInfoForLog()    // 获取调用者信息
+	fields = append(fields, callerFields...) // 合并字段
+	logger.Info(message, fields...)          // 记录日志
 }
 
-func (l *Logger) Info(msg string, fields ...Field) {
-	l.l.Info(msg, fields...)
+func Warn(message string, fields ...zap.Field) {
+	callerFields := getCallerInfoForLog()
+	fields = append(fields, callerFields...)
+	logger.Warn(message, fields...)
 }
 
-func (l *Logger) Warn(msg string, fields ...Field) {
-	l.l.Warn(msg, fields...)
+func Error(message string, fields ...zap.Field) {
+	callerFields := getCallerInfoForLog()
+	fields = append(fields, callerFields...)
+	logger.Error(message, fields...)
 }
 
-func (l *Logger) Error(msg string, fields ...Field) {
-	l.l.Error(msg, fields...)
+func Fatal(message string, fields ...zap.Field) {
+	callerFields := getCallerInfoForLog()
+	fields = append(fields, callerFields...)
+	logger.Fatal(message, fields...)
 }
 
-func (l *Logger) Panic(msg string, fields ...Field) {
-	l.l.Panic(msg, fields...)
+func Debug(message string, fields ...zap.Field) {
+	callerFields := getCallerInfoForLog()
+	fields = append(fields, callerFields...)
+	logger.Debug(message, fields...)
 }
-
-func (l *Logger) Fatal(msg string, fields ...Field) {
-	l.l.Fatal(msg, fields...)
-}
-
-func (l *Logger) Sync() error {
-	return l.l.Sync()
-}
-
-var std = New(os.Stderr, InfoLevel)
-
-func Default() *Logger         { return std }
-func ReplaceDefault(l *Logger) { std = l }
-
-func SetLevel(level Level) { std.SetLevel(level) }
-
-func Debug(msg string, fields ...Field) { std.Debug(msg, fields...) }
-func Info(msg string, fields ...Field)  { std.Info(msg, fields...) }
-func Warn(msg string, fields ...Field)  { std.Warn(msg, fields...) }
-func Error(msg string, fields ...Field) { std.Error(msg, fields...) }
-func Panic(msg string, fields ...Field) { std.Panic(msg, fields...) }
-func Fatal(msg string, fields ...Field) { std.Fatal(msg, fields...) }
-
-func Sync() error { return std.Sync() }
