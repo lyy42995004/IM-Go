@@ -1,99 +1,195 @@
 package zap
 
 import (
+	"io"
 	"os"
-	"path"
-	"runtime"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
 
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/lyy42995004/IM-Go/internal/config"
-	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var logger *zap.Logger
-var logPath string
+var (
+	once     sync.Once
+	std      *Logger
+	logPath  string
+	initDone bool
+)
 
-// 自动调用
-func init() {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	// 设置日志记录中时间格式
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	// 创建JSON编码器
-	encoder := zapcore.NewJSONEncoder(encoderConfig)
+type Level = zapcore.Level
 
-	// 获取配置
+const (
+	DebugLevel = zapcore.DebugLevel
+	InfoLevel  = zapcore.InfoLevel
+	WarnLevel  = zapcore.WarnLevel
+	ErrorLevel = zapcore.ErrorLevel
+	PanicLevel = zapcore.PanicLevel
+	FatalLevel = zapcore.FatalLevel
+)
+
+type Logger struct {
+	l  *zap.Logger
+	al *zap.AtomicLevel
+}
+
+type RotateConfig struct {
+	Filename     string        // 完整文件名
+	MaxAge       int           // 保留旧日志文件的最大天数
+	RotationTime time.Duration // 日志文件轮转时间
+	MaxSize      int           // 日志文件最大大小（MB）
+	MaxBackups   int           // 保留日志文件的最大数量
+	Compress     bool          // 是否对日志文件进行压缩归档
+	LocalTime    bool          // 是否使用本地时间，默认 UTC 时间
+}
+
+func initLogger() {
 	conf := config.GetConfig()
-	logPath = conf.LogPath
+	logPath = filepath.Join(conf.LogConfig.LogPath, "app.log")
 
-	// 创建文件写入同步器
-	fileWriteSyncer := getFileLogWriter()
+	// 确保日志目录存在
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		panic(err)
+	}
 
-	// 创建核心日志处理器
-	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
-		zapcore.NewCore(encoder, fileWriteSyncer, zapcore.DebugLevel),
+	std = NewWithRotate(InfoLevel, NewProductionRotateConfig(logPath))
+	initDone = true
+}
+
+// Default 获取默认Logger，确保只初始化一次
+func Default() *Logger {
+	once.Do(initLogger)
+	return std
+}
+
+// NewWithRotate 创建一个带日志轮转功能的Logger
+func NewWithRotate(level Level, cfg *RotateConfig, opts ...zap.Option) *Logger {
+	var writer io.Writer
+	if cfg.MaxSize > 0 {
+		writer = NewRotateBySize(cfg)
+	} else {
+		writer = NewRotateByTime(cfg)
+	}
+
+	al := zap.NewAtomicLevelAt(level)
+	encoderCfg := zap.NewProductionEncoderConfig()
+	encoderCfg.EncodeTime = zapcore.RFC3339TimeEncoder
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderCfg),
+		zapcore.AddSync(writer),
+		al,
 	)
-	logger = zap.New(core)
-}
 
-// 创建了一个支持日志轮转的写入器
-func getFileLogWriter() (writeSyncer zapcore.WriteSyncer) {
-	lumberJackLogger := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    100,   // 单个文件最大100MB
-		MaxBackups: 60,    // 最多保留60个备份文件
-		MaxAge:     7,     // 日志文件最多保留7天
-		Compress:   false, // 不压缩旧日志
-	}
-
-	return zapcore.AddSync(lumberJackLogger)
-}
-
-// 获得调用方的日志信息，包括函数名，文件名，行号
-func getCallerInfoForLog() []zap.Field {
-	// 获取调用者的程序计数器、文件名和行号(跳过2层调用栈)
-	pc, file, line, ok := runtime.Caller(2)
-	if !ok {
-		return nil
-	}
-	funcName := runtime.FuncForPC(pc).Name()
-	funcName = path.Base(funcName) // 只保留函数名
-
-	// 创建包含调用者信息的字段
-	return []zap.Field{
-		zap.String("func", funcName),
-		zap.String("file", file),
-		zap.Int("line", line),
+	return &Logger{
+		l:  zap.New(core, opts...),
+		al: &al,
 	}
 }
 
-func Info(message string, fields ...zap.Field) {
-	callerFields := getCallerInfoForLog()    // 获取调用者信息
-	fields = append(fields, callerFields...) // 合并字段
-	logger.Info(message, fields...)          // 记录日志
+func NewProductionRotateConfig(filename string) *RotateConfig {
+	return &RotateConfig{
+		Filename:     filename,
+		MaxAge:       30,             // 日志保留30天
+		RotationTime: time.Hour * 24, // 24小时轮转一次
+		MaxSize:      100,            // 100M
+		MaxBackups:   100,
+		Compress:     true,
+		LocalTime:    false,
+	}
 }
 
-func Warn(message string, fields ...zap.Field) {
-	callerFields := getCallerInfoForLog()
-	fields = append(fields, callerFields...)
-	logger.Warn(message, fields...)
+func NewRotateByTime(cfg *RotateConfig) io.Writer {
+	opts := []rotatelogs.Option{
+		rotatelogs.WithMaxAge(time.Duration(cfg.MaxAge) * time.Hour * 24),
+		rotatelogs.WithRotationTime(cfg.RotationTime),
+		rotatelogs.WithLinkName(cfg.Filename),
+	}
+	if !cfg.LocalTime {
+		opts = append(opts, rotatelogs.WithClock(rotatelogs.UTC))
+	}
+	filename := strings.SplitN(cfg.Filename, ".", 2)
+	l, _ := rotatelogs.New(
+		filename[0]+".%Y-%m-%d-%H-%M-%S."+filename[1],
+		opts...,
+	)
+	return l
 }
 
-func Error(message string, fields ...zap.Field) {
-	callerFields := getCallerInfoForLog()
-	fields = append(fields, callerFields...)
-	logger.Error(message, fields...)
+func NewRotateBySize(cfg *RotateConfig) io.Writer {
+	return &lumberjack.Logger{
+		Filename:   cfg.Filename,
+		MaxSize:    cfg.MaxSize,
+		MaxAge:     cfg.MaxAge,
+		MaxBackups: cfg.MaxBackups,
+		LocalTime:  cfg.LocalTime,
+		Compress:   cfg.Compress,
+	}
 }
 
-func Fatal(message string, fields ...zap.Field) {
-	callerFields := getCallerInfoForLog()
-	fields = append(fields, callerFields...)
-	logger.Fatal(message, fields...)
+func (l *Logger) SetLevel(level Level) {
+	if l.al != nil {
+		l.al.SetLevel(level)
+	}
 }
 
-func Debug(message string, fields ...zap.Field) {
-	callerFields := getCallerInfoForLog()
-	fields = append(fields, callerFields...)
-	logger.Debug(message, fields...)
+type Field = zap.Field
+
+func (l *Logger) Debug(msg string, fields ...Field) {
+	l.l.Debug(msg, fields...)
+}
+
+func (l *Logger) Info(msg string, fields ...Field) {
+	l.l.Info(msg, fields...)
+}
+
+func (l *Logger) Warn(msg string, fields ...Field) {
+	l.l.Warn(msg, fields...)
+}
+
+func (l *Logger) Error(msg string, fields ...Field) {
+	l.l.Error(msg, fields...)
+}
+
+func (l *Logger) Panic(msg string, fields ...Field) {
+	l.l.Panic(msg, fields...)
+}
+
+func (l *Logger) Fatal(msg string, fields ...Field) {
+	l.l.Fatal(msg, fields...)
+}
+
+func (l *Logger) Sync() error {
+	return l.l.Sync()
+}
+
+func ReplaceDefault(l *Logger) { std = l }
+
+func SetLevel(level Level) { Default().SetLevel(level) }
+
+func Debug(msg string, fields ...Field) { Default().Debug(msg, fields...) }
+func Info(msg string, fields ...Field)  { Default().Info(msg, fields...) }
+func Warn(msg string, fields ...Field)  { Default().Warn(msg, fields...) }
+func Error(msg string, fields ...Field) { Default().Error(msg, fields...) }
+func Panic(msg string, fields ...Field) { Default().Panic(msg, fields...) }
+func Fatal(msg string, fields ...Field) { Default().Fatal(msg, fields...) }
+
+func Sync() error { return Default().Sync() }
+
+// SetLogPath 设置日志路径并重新初始化默认Logger
+func SetLogPath(path string) {
+	logPath = filepath.Join(path, "app.log")
+	// 确保日志目录存在
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		panic(err)
+	}
+
+	if initDone {
+		ReplaceDefault(NewWithRotate(InfoLevel, NewProductionRotateConfig(logPath)))
+	}
 }
