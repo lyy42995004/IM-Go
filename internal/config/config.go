@@ -17,7 +17,7 @@ type Config struct {
 var config *Config
 
 func LoadConfig() error {
-	if _, err := toml.DecodeFile("/home/Tian/im-go/configs/config_local.toml", config); err != nil {
+	if _, err := toml.DecodeFile("/home/Tian/im-go/configs/configs.toml", config); err != nil {
 		log.Fatal(err.Error())
 		return err
 	}
