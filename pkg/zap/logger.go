@@ -50,7 +50,7 @@ type RotateConfig struct {
 
 func initLogger() {
 	conf := config.GetConfig()
-	logPath = filepath.Join(conf.LogConfig.LogPath, "app.log")
+	logPath = filepath.Join(conf.LogConfig.LogPath, "chat.log")
 
 	// 确保日志目录存在
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
