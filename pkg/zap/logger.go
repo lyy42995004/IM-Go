@@ -1,3 +1,4 @@
+// TODO: 去除无用功能，设置日志路径，动态调整日志级别等
 package zap
 
 import (
@@ -183,7 +184,7 @@ func Sync() error { return Default().Sync() }
 
 // SetLogPath 设置日志路径并重新初始化默认Logger
 func SetLogPath(path string) {
-	logPath = filepath.Join(path, "app.log")
+	logPath = filepath.Join(path, "chat.log")
 	// 确保日志目录存在
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
 		panic(err)
