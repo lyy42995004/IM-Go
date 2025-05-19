@@ -1,9 +1,11 @@
 package zap
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -40,7 +42,7 @@ func Init() *zap.Logger {
 		level := getLogLevel(defaultLogLevel)
 
 		// 日志文件路径
-		logFile := filepath.Join(defaultLogPath, "chat.log")
+		logFile := getDatedLogFilename(defaultLogPath)
 
 		// 设置日志轮转
 		writer := zapcore.AddSync(&lumberjack.Logger{
@@ -77,6 +79,12 @@ func GetLogger() *zap.Logger {
 		Init() // 自动初始化
 	}
 	return Logger
+}
+
+// getDatedLogFilename 生成带日期的日志文件名
+func getDatedLogFilename(basePath string) string {
+    now := time.Now()
+    return filepath.Join(basePath, fmt.Sprintf("chat_%s.log", now.Format("2006-01-02")))
 }
 
 // getLogLevel 将字符串日志级别转换为zapcore.Level
