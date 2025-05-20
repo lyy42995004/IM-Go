@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lyy42995004/IM-Go/api"
-	"github.com/lyy42995004/IM-Go/internal/common/response"
+	"github.com/lyy42995004/IM-Go/pkg/common/response"
 	"github.com/lyy42995004/IM-Go/pkg/log"
 )
 

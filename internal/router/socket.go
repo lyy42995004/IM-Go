@@ -18,12 +18,12 @@ var upGrader = websocket.Upgrader{
 // 建立WebSocket连接，并开启客户端的读写操作
 func RunSocket(c *gin.Context) {
 	user := c.Query("user")
-	if user == ""  {
+	if user == "" {
 		return
 	}
-	log.Info("newUser",log.String("newUser", user))
+	log.Info("newUser", log.String("newUser", user))
 
-	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil) 
+	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
