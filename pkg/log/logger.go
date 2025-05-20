@@ -14,7 +14,7 @@ import (
 
 var (
 	once    sync.Once
-	Logger  *zap.Logger
+	logger  *zap.Logger
 	String  = zap.String
 	Any     = zap.Any
 	Err     = zap.Error
@@ -67,19 +67,19 @@ func Init() *zap.Logger {
 			level,
 		)
 
-		// 创建Logger
-		Logger = zap.New(core)
+		// 创建logger
+		logger = zap.New(core)
 	})
 
-	return Logger
+	return logger
 }
 
 // GetLogger 获取日志记录器实例
 func GetLogger() *zap.Logger {
-	if Logger == nil {
+	if logger == nil {
 		Init() // 自动初始化
 	}
-	return Logger
+	return logger
 }
 
 // getDatedLogFilename 生成带日期的日志文件名
