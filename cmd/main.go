@@ -19,7 +19,7 @@ func main() {
 	go server.MyServer.Start()
 
 	s := &http.Server{
-		Addr:           ".8080",
+		Addr:           ":8080",
 		Handler:        newRouter,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
