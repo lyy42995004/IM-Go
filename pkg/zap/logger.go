@@ -17,6 +17,7 @@ var (
 	Logger  *zap.Logger
 	String  = zap.String
 	Any     = zap.Any
+	Err     = zap.Error
 	Int     = zap.Int
 	Float32 = zap.Float32
 )
@@ -83,8 +84,8 @@ func GetLogger() *zap.Logger {
 
 // getDatedLogFilename 生成带日期的日志文件名
 func getDatedLogFilename(basePath string) string {
-    now := time.Now()
-    return filepath.Join(basePath, fmt.Sprintf("chat_%s.log", now.Format("2006-01-02")))
+	now := time.Now()
+	return filepath.Join(basePath, fmt.Sprintf("chat_%s.log", now.Format("2006-01-02")))
 }
 
 // getLogLevel 将字符串日志级别转换为zapcore.Level
