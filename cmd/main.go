@@ -1,4 +1,32 @@
 package main
 
+import (
+	"net/http"
+	"time"
+
+	"github.com/lyy42995004/IM-Go/internal/router"
+	"github.com/lyy42995004/IM-Go/internal/server"
+	"github.com/lyy42995004/IM-Go/pkg/log"
+)
+
 func main() {
+	defer log.Sync() // 记录日志
+
+	log.Info("start chat server...")
+
+	newRouter := router.NewRouter()
+
+	go server.MyServer.Start()
+
+	s := &http.Server{
+		Addr:           ".8080",
+		Handler:        newRouter,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	err := s.ListenAndServe()
+	if err != nil {
+		log.Error("server start error", log.Err(err))
+	}
 }
