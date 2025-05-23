@@ -148,15 +148,24 @@ func (u *userService) AddFriend(userFriendRequest *request.FriendRequest) error 
 		return errors.New("该用户已经是你好友")
 	}
 
+	db.AutoMigrate(&userFriend)
+	db.Save(&userFriend)
+	log.Debug("userFriend", log.Any("userFriend", userFriend))
+
 	return nil
 }
 
 // 根据用户的 uuid 修改用户的头像
-func (u *userService) ModifyUserAvatar(avatar string, userUuid string) {
+func (u *userService) ModifyUserAvatar(avatar string, userUuid string) error {
 	db := pool.GetDB()
 
 	var queryUser *model.User
 	db.First(&queryUser, "uuid = ?", userUuid)
-	if nu
+	var nullId int32 = 0
+	if nullId == queryUser.Id {
+		return errors.New("用户不存在")
+	}
 
+	db.Model(&queryUser).Update("avatar", avatar)
+	return nil
 }
