@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lyy42995004/IM-Go/api"
+	"github.com/lyy42995004/IM-Go/api/v1"
 	"github.com/lyy42995004/IM-Go/pkg/common/response"
 	"github.com/lyy42995004/IM-Go/pkg/log"
 )
@@ -21,24 +21,24 @@ func NewRouter() *gin.Engine {
 	group := server.Group("")
 	{
 		// 用户管理功能
-		group.GET("/user", api.GetUserList)
-		group.GET("/user/:uuid", api.GetUserDetails)
-		group.GET("/user/name", api.GetUserOrGroupByName)
-		group.POST("/user/register", api.Register)
-		group.POST("/user/login", api.Login)
-		group.PUT("/user", api.ModifyUserInfo)
+		group.GET("/user", v1.GetUserList)
+		group.GET("/user/:uuid", v1.GetUserDetails)
+		group.GET("/user/name", v1.GetUserOrGroupByName)
+		group.POST("/user/register", v1.Register)
+		group.POST("/user/login", v1.Login)
+		group.PUT("/user", v1.ModifyUserInfo)
 
-		group.POST("/friend", api.AddFriend)
+		group.POST("/friend", v1.AddFriend)
 
-		group.GET("/message", api.GetMessage)
+		group.GET("/message", v1.GetMessage)
 
-		group.GET("/file/:fileName", api.GetFile)
-		group.POST("/file", api.SaveFile)
+		group.GET("/file/:fileName", v1.GetFile)
+		group.POST("/file", v1.SaveFile)
 
-		group.GET("/group/:uuid", api.GetGroup)
-		group.POST("/group/:uuid", api.SaveGroup)
-		group.POST("/group/join/:userUuid/:groupUuid", api.JoinGroup)
-		group.GET("/group/user/:uuid", api.GetGroupUsers)
+		group.GET("/group/:uuid", v1.GetGroup)
+		group.POST("/group/:uuid", v1.SaveGroup)
+		group.POST("/group/join/:userUuid/:groupUuid", v1.JoinGroup)
+		group.GET("/group/user/:uuid", v1.GetGroupUsers)
 
 		group.GET("/socket.io", socket)
 	}
