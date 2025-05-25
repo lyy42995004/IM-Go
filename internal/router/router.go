@@ -80,4 +80,5 @@ func Recovery(c *gin.Context) {
 			c.JSON(http.StatusOK, response.FailMsg("系统内部错误"))
 		}
 	}()
+	c.Next()
 }
