@@ -15,7 +15,7 @@ type Client struct {
 }
 
 // 从客户端的 WebSocket 连接中读取消息，并根据消息类型进行相应的处理
-func (c *Client) Write() {
+func (c *Client) Read() {
 	defer func() {
 		MyServer.Ungister <- c // 注销登录
 		c.Conn.Close()         // 关闭连接
@@ -53,7 +53,7 @@ func (c *Client) Write() {
 }
 
 // 从 Send 通道中接收消息，并将其以二进制消息的形式发送给客户端
-func (c *Client) Read() {
+func (c *Client) Write() {
 	defer func() {
 		c.Conn.Close()
 	}()
