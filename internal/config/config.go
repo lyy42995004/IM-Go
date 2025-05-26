@@ -7,8 +7,9 @@ import (
 )
 
 type Config struct {
-	Appname string
-	MySQL   MySQLConfig
+	Appname    string
+	MySQL      MySQLConfig
+	StaticPath PathConfig
 }
 
 // MySQL 配置
@@ -21,10 +22,15 @@ type MySQLConfig struct {
 	User        string
 }
 
+// 文件地址
+type PathConfig struct {
+	FilePath string
+}
+
 var c Config
 
 func init() {
-	viper.SetConfigName("config")    // 设置要读取配置文件的名称
+	viper.SetConfigName("configs")    // 设置要读取配置文件的名称
 	viper.SetConfigType("toml")      // 指定配置文件的类型为 TOML
 	viper.AddConfigPath("./configs") // 添加配置文件的搜索路径
 	viper.AutomaticEnv()             // 自动读取环境变量

@@ -1,9 +1,16 @@
 package server
 
 import (
+	"encoding/base64"
+	"os"
+	"strings"
 	"sync"
 
+	"github.com/google/uuid"
+	"github.com/lyy42995004/IM-Go/internal/config"
+	"github.com/lyy42995004/IM-Go/internal/service"
 	"github.com/lyy42995004/IM-Go/pkg/common/constant"
+	"github.com/lyy42995004/IM-Go/pkg/common/util"
 	"github.com/lyy42995004/IM-Go/pkg/log"
 	"github.com/lyy42995004/IM-Go/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -114,10 +121,79 @@ func (s *Server) sendUserMessage(msg *protocol.Message) {
 
 // 将消息发送给群组中的所有成员
 func (s *Server) sendGroupMessage(msg *protocol.Message) {
+	// 获取所有成员信息
+	users := service.GroupService.GetUserIdByGroupUuid(msg.To)
+	for _, user := range users {
+		if user.Uuid == msg.From {
+			continue
+		}
+
+		client, ok := s.Clients[user.Uuid]
+		if !ok {
+			continue
+		}
+		
+		fromUserDetails := service.UserService.GetUserDetails(msg.From)
+		msgSend := protocol.Message{
+			Avatar:       fromUserDetails.Avatar,
+			FromUsername: msg.FromUsername,
+			From:         msg.To,
+			To:           msg.From,
+			Content:      msg.Content,
+			ContentType:  msg.ContentType,
+			Type:         msg.Type,
+			MessageType:  msg.MessageType,
+			Url:          msg.Url,
+		}
+
+		msgByte, err := proto.Marshal(&msgSend)
+		if err == nil {
+			client.Send <- msgByte
+		}
+	}
 }
 
 // 存消息，如果是文本消息直接保存，如果是文件，语音等消息，保存文件后，保存对应的文件路径
 func saveMessage(message *protocol.Message) {
+	// 如果上传的是base64字符串文件，解析文件保存
 	if message.ContentType == 2 {
+		url := uuid.New().String() + ".png"
+		index := strings.Index(message.Content, "base64")
+		index += 7
+
+		content := message.Content
+		content = content[index:]
+
+		dataBuffer, dataErr := base64.StdEncoding.DecodeString(content)
+		if dataErr != nil {
+			log.Error("transfer base64 to file error", log.String("transfer base64 to file error", dataErr.Error()))
+			return
+		}
+		err := os.WriteFile(config.GetConfig().StaticPath.FilePath+url, dataBuffer, 0666)
+		if err != nil {
+			log.Error("write file error", log.String("write file error", err.Error()))
+			return
+		}
+		message.Url = url
+		message.Content = ""
+	} else if message.ContentType == 3 {
+		// 普通的文件二进制上传
+		fileSuffix := util.GetFileType(message.File)
+		nullStr := ""
+		if nullStr == fileSuffix {
+			fileSuffix = strings.ToLower(message.FileSuffix)
+		}
+		contentType := util.GetContentTypeBySuffix(fileSuffix)
+		url := uuid.New().String() + "." + fileSuffix
+		err := os.WriteFile(config.GetConfig().StaticPath.FilePath+url, message.File, 0666)
+		if err != nil {
+			log.Error("write file error", log.String("write file error", err.Error()))
+			return
+		}
+		message.Url = url
+		message.File = nil
+		message.ContentType = contentType
 	}
+
+	service.MessageService.SaveMessage(message)
 }
