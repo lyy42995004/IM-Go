@@ -24,7 +24,7 @@ var (
 
 const (
 	defaultLogPath    = "./logs"
-	defaultLogLevel   = "info"
+	defaultLogLevel   = "debug"
 	defaultMaxSize    = 100  // MB
 	defaultMaxBackups = 30   // 保留的旧日志文件数量
 	defaultMaxAge     = 7    // 保留天数
