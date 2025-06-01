@@ -1,8 +1,8 @@
 package api
 
 import (
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +17,7 @@ import (
 func GetFile(c *gin.Context) {
 	fileName := c.Param("fileName")
 	log.Info(fileName)
-	data, _ := ioutil.ReadFile(config.GetConfig().StaticPath.FilePath + fileName)
+	data, _ :=  os.ReadFile(config.GetConfig().StaticPath.FilePath + fileName)
 	c.Writer.Write(data)
 }
 
