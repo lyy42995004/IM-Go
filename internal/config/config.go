@@ -10,6 +10,7 @@ type Config struct {
 	Appname    string
 	MySQL      MySQLConfig
 	StaticPath PathConfig
+	MsgChannelType MsgChannelType
 }
 
 // MySQL 配置
@@ -25,6 +26,15 @@ type MySQLConfig struct {
 // 文件地址
 type PathConfig struct {
 	FilePath string
+}
+
+// 消息队列类型及相关信息
+// gochannel为单机使用go默认的channel进行消息传递
+// kafka 是使用 kafka 作为消息队列，可以分布式扩展消息聊天程序
+type MsgChannelType struct {
+	ChannelType string
+	KafkaHosts  string
+	KafkaTopic  string
 }
 
 var c Config

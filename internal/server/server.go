@@ -197,3 +197,8 @@ func saveMessage(message *protocol.Message) {
 
 	service.MessageService.SaveMessage(message)
 }
+
+// 消费kafka里面的消息, 直接放入go channel中统一进行消费
+func ConsumerKafkaMsg(data []byte) {
+	MyServer.Broadcast <- data
+}
