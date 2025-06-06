@@ -25,7 +25,7 @@ func (m *messageService) GetMessages(message request.MessageRequest) ([]response
 	// 处理用户间消息请求
 	if message.MessageType == constant.MESSAGE_TYPE_USER {
 		var queryUser *model.User
-		db.First(&queryUser)
+		db.First(&queryUser, "uuid = ?", message.Uuid)
 
 		if queryUser.Id == 0 {
 			return nil, errors.New("用户不存在")
