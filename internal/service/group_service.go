@@ -35,8 +35,8 @@ func (g *groupService) GetGroups(uuid string) ([]response.GroupResponse, error) 
 				g.id AS group_id, g.uuid, g.created_at, g.name, g.notice
 			FROM
 				group_members AS gm
-			LEFT JOIN 
-				groups AS g ON gm.group_id = g.id
+			LEFT JOIN` +
+				 " `groups` " + `AS g ON gm.group_id = g.id
 			WHERE
 				gm.user_id = ?`,
 			queryUser.Id,
@@ -80,8 +80,8 @@ func (g *groupService) GetUserIdByGroupUuid(groupUuid string) []model.User {
 	var users []model.User
 	db.Raw(`SELECT
 				u.uuid, u.avatar, u.username 
-			FROM
-				groups AS g
+			FROM` +
+				" `groups` " + `AS g
 			JOIN
 				group_members AS gm ON gm.group_id = g.id 
 			JOIN
@@ -103,7 +103,7 @@ func (g *groupService) JoinGroup(groupUuid, userUuid string) error {
 
 	var group model.Group
 	db.First(&group, "uuid = ?", groupUuid)
-	if user.Id <= 0 {
+	if group.ID <= 0 {
 		return errors.New("群组不存在")
 	}
 	var groupMember model.GroupMember
