@@ -65,7 +65,7 @@ func GetUserOrGroupByName(c *gin.Context) {
 
 // 获取所有用户的列表信息
 func GetUserList(c *gin.Context) {
-	uuid := c.Param("uuid")
+	uuid := c.Query("uuid")
 
 	c.JSON(http.StatusOK, response.SuccessMsg(service.UserService.GetUserList(uuid)))
 }
@@ -73,6 +73,8 @@ func GetUserList(c *gin.Context) {
 // 添加好友
 func AddFriend(c *gin.Context) {
 	var userFriendRequest request.FriendRequest
+	c.ShouldBindJSON(&userFriendRequest)
+
 	if err := service.UserService.AddFriend(&userFriendRequest); err != nil {
 		c.JSON(http.StatusOK, response.FailMsg(err.Error()))
 	}
