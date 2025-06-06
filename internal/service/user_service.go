@@ -82,7 +82,7 @@ func (u *userService) GetUserDetails(uuid string) model.User {
 }
 
 // 根据名称查找用户或群组
-func (u *userService) GetUserOrGroupByName(name string) response.SerachResponse {
+func (u *userService) GetUserOrGroupByName(name string) response.SearchResponse {
 	db := pool.GetDB()
 
 	var queryUser *model.User
@@ -91,7 +91,7 @@ func (u *userService) GetUserOrGroupByName(name string) response.SerachResponse 
 	var queryGroup *model.Group
 	db.Select("uuid", "name").First(&queryGroup, "name = ?", name)
 
-	return response.SerachResponse{
+	return response.SearchResponse{
 		User:  *queryUser,
 		Group: *queryGroup,
 	}
