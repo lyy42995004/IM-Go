@@ -4,7 +4,7 @@ IM-Go 是一个基于 Go 语言开发的即时通讯系统。本系统提供高�
 
 ## 项目架构
 
-![](https://s2.loli.net/2025/05/26/7Nj1o58FP2axUY9.png)
+![](https://i-blog.csdnimg.cn/img_convert/ededd45fcb032bf178a1cfb1ad8f8111.png)
 
 ## 功能特性
 
